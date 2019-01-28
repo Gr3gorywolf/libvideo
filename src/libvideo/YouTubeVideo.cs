@@ -14,7 +14,7 @@ namespace VideoLibrary
         private bool encrypted;
         //Your Service
         // https://dl.dropboxusercontent.com/s/ccmwnfmcmmwdspf/dfunctionregex.txt is not reliable please use own file
-        private static string DFuctionRegexService = "https://dl.dropboxusercontent.com/s/ccmwnfmcmmwdspf/dfunctionregex.txt"; //For Dynamic Service
+        private static string DFuctionRegexService = "https://dl.dropboxusercontent.com/s/e4atrr5q43nxnvg/dfunctionregex.txt"; //For Dynamic Service
         internal YouTubeVideo(string title,
             UnscrambledQuery query, string jsPlayer)
         {
