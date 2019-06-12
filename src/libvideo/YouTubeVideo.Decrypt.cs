@@ -98,6 +98,7 @@ namespace VideoLibrary
                     //if dynamic fails then throw an exception              
                 if(!match.Success)
                     throw new Exception($"{nameof(GetDecryptionFunction)} failed");
+                return match.Groups[1].Value;
             }
         }
         private class Decryptor
