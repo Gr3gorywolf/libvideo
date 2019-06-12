@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using VideoLibrary.Exceptions;
 
 namespace VideoLibrary.Helpers
 {
@@ -47,9 +50,16 @@ namespace VideoLibrary.Helpers
                 int equals = pair.IndexOf('=');
                 string key;
                 string value;
-
-                key = pair.Substring(0, equals);
-                value = equals < pair.Length ? pair.Substring(equals + 1) : string.Empty;
+                if (equals != pair.LastIndexOf('='))
+                {
+                    key = pair.Substring(0, equals);
+                    value = String.Empty;
+                }
+                else
+                {
+                    key = pair.Substring(0, equals);
+                    value = pair.Substring(equals + 1);
+                }
 
                 pairs[i] = new KeyValuePair<string, string>(key, value);
             }
@@ -133,7 +143,7 @@ namespace VideoLibrary.Helpers
             {
                 var pair = pairs[i];
 
-                if (item.Key == pair.Key &&
+                if (item.Key == pair.Key && 
                     item.Value == pair.Value)
                     return true;
             }

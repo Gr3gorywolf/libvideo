@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Net.Http;
 
 namespace VideoLibrary.Debug
 {
@@ -23,9 +22,7 @@ namespace VideoLibrary.Debug
                 "https://www.youtube.com/watch?v=kp8u_Yrw76Q", //private
                 "https://www.youtube.com/watch?v=09R8_2nJtjg", //encrypted
                 "https://www.youtube.com/watch?v=ZAqC3Qh_oUs",
-                "https://www.youtube.com/watch?v=pG_euGOe0ww",
-                "https://www.youtube.com/watch?v=-zCkhuFqpFc",
-                "https://www.youtube.com/watch?v=2vjPBrBU-TM"
+                "https://www.youtube.com/watch?v=pG_euGOe0ww"
             };
 
             TestVideoLib(queries);

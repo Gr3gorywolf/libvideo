@@ -21,18 +21,15 @@ namespace VideoLibrary
             var query = new Query(uri);
 
             string signature;
-            if (!query.TryGetValue(YouTube.GetSignatureKey(), out signature))
+            if (!query.TryGetValue("signature", out signature))
                 return uri;
-
-            if (string.IsNullOrWhiteSpace(signature))
-                throw new Exception("Signature not found.");
 
             string js =
                 await makeClient()
-                    .GetStringAsync(jsPlayer)
-                    .ConfigureAwait(false);
+                .GetStringAsync(jsPlayer)
+                .ConfigureAwait(false);
 
-            query[YouTube.GetSignatureKey()] = DecryptSignature(js, signature);
+            query["signature"] = DecryptSignature(js, signature);
             return query.ToString();
         }
         private string DecryptSignature(string js, string signature)
@@ -81,17 +78,10 @@ namespace VideoLibrary
         }
         private string GetDecryptionFunction(string js)
         {
-            // Dynamic or Static Regex if get which available
-            var match = DecryptionFunctionRegex_Static_1.Match(js);
-            if (match.Success)
-            {
-                return match.Groups[1].Value;
-            }
-            else if((match = DFunctionRegex_Dynamic.Match(js)).Success)
-            {
-                return match.Groups[1].Value;
-            }
-            else
+            // use the static regex
+           var match = DecryptionFunctionRegex_Static_1.Match(js);
+          
+            if (!match.Success)
             {
               //if fails use the dynamic regex
                match = DFunctionRegex_Dynamic.Match(js);
@@ -99,6 +89,8 @@ namespace VideoLibrary
                 if(!match.Success)
                     throw new Exception($"{nameof(GetDecryptionFunction)} failed");
             }
+
+            return match.Groups[1].Value;
         }
         private class Decryptor
         {
