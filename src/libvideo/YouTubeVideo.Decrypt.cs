@@ -11,10 +11,17 @@ namespace VideoLibrary
 {
     public partial class YouTubeVideo
     {
-        //Static
-        private static readonly Regex DecryptionFunctionRegex_Static_1 = new Regex(@"\bc\s*&&\s*d\.set\([^,]+\s*,[^(]*\(([a-zA-Z0-9$]+)\(");       
-        //Dynamic with Service
-        private static Regex DFunctionRegex_Dynamic;
+        // Your Service
+        // https://dl.dropboxusercontent.com/s/ccmwnfmcmmwdspf/dfunctionregex.txt is not reliable please use own file
+        /// <summary>
+        /// <para>Url to a remote txt file. The file contains the current Regex-string for decrypting some videos.</para> 
+        /// Used as fallback in case of a breaking update of Youtubes javascript. This allows an update of the Regex even after deployment of the application.
+        /// </summary>
+        public static string DFunctionRegexService = "https://dl.dropboxusercontent.com/s/ccmwnfmcmmwdspf/dfunctionregex.txt";
+        // Dynamic Regex with Service	
+        private static Regex DecryptionFunctionDynamicRegex;
+        // Static Regex
+        private static readonly Regex DecryptionFunctionStaticRegex = new Regex(@"\bc\s*&&\s*a\.set\([^,]+,\s*(?:encodeURIComponent\s*\()?\s*([\w$]+)\(");
         private static readonly Regex FunctionRegex = new Regex(@"\w+\.(\w+)\(");
         private async Task<string> DecryptAsync(string uri, Func<DelegatingClient> makeClient)
         {
@@ -39,6 +46,16 @@ namespace VideoLibrary
         {
             var functionLines = GetDecryptionFunctionLines(js);
             var decryptor = new Decryptor();
+            var deciphererDefinitionName = Regex.Match(string.Join(";", functionLines), "(\\w+).\\w+\\(\\w+,\\d+\\);").Groups[1].Value;
+            if (string.IsNullOrEmpty(deciphererDefinitionName))
+            {
+                throw new Exception("Could not find signature decipherer definition name. Please report this issue to us.");
+            }
+            var deciphererDefinitionBody = Regex.Match(js, @"var\s+" + Regex.Escape(deciphererDefinitionName) + @"=\{(\w+:function\(\w+(,\w+)?\)\{(.*?)\}),?\};", RegexOptions.Singleline).Groups[0].Value;
+            if (string.IsNullOrEmpty(deciphererDefinitionBody))
+            {
+                throw new Exception("Could not find signature decipherer definition body. Please report this issue to us.");
+            }
             foreach (var functionLine in functionLines)
             {
                 if (decryptor.IsComplete)
@@ -49,7 +66,7 @@ namespace VideoLibrary
                 var match = FunctionRegex.Match(functionLine.Replace("[\"", ".").Replace("\"]", ""));
                 if (match.Success)
                 {
-                    decryptor.AddFunction(js, match.Groups[1].Value);
+                    decryptor.AddFunction(deciphererDefinitionBody, match.Groups[1].Value);
                 }
             }
 
@@ -66,39 +83,58 @@ namespace VideoLibrary
         }
         private string[] GetDecryptionFunctionLines(string js)
         {
-            var decryptionFunction = GetDecryptionFunction(js);
-            var match =
-                Regex.Match(
-                    js,
-                    $@"(?!h\.){Regex.Escape(decryptionFunction)}=function\(\w+\)\{{(.*?)\}}",
-                    RegexOptions.Singleline);
-            if (!match.Success)
+            var deciphererFuncName = Regex.Match(js, @"(\w+)=function\(\w+\){(\w+)=\2\.split\(\x22{2}\);.*?return\s+\2\.join\(\x22{2}\)}");
+            if (deciphererFuncName.Success)
             {
-                throw new Exception($"{nameof(GetDecryptionFunctionLines)} failed");
+                var deciphererFuncBody = Regex.Match(js, @"(?!h\.)" + Regex.Escape(deciphererFuncName.Groups[1].Value) + @"=function\(\w+\)\{(.*?)\}", RegexOptions.Singleline);
+                if (deciphererFuncBody.Success)
+                {
+                    return deciphererFuncBody.Groups[1].Value.Split(';');
+                }
+            }
+            // TODO Remove
+            var decryptionFunction = GetDecryptionFunction(js);
+            var match = Regex.Match(js, $@"(?!h\.){Regex.Escape(decryptionFunction)}=function\(\w+\)\{{(.*?)\}}", RegexOptions.Singleline);
+            if (match.Success)
+            {
+                return match.Groups[1].Value.Split(';');
             }
 
-            return match.Groups[1].Value.Split(';');
+            throw new Exception("Could not find signature DecryptionFunctionLines. Please report this issue to us.");
         }
+        // TODO Remove
         private string GetDecryptionFunction(string js)
         {
-            // Dynamic or Static Regex if get which available
-            var match = DecryptionFunctionRegex_Static_1.Match(js);
+            //Static
+            var match = DecryptionFunctionStaticRegex.Match(js);
             if (match.Success)
             {
                 return match.Groups[1].Value;
             }
-            else if((match = DFunctionRegex_Dynamic.Match(js)).Success)
+            //Dynamic
+            if (DecryptionFunctionDynamicRegex == null)
+            {
+                DecryptionFunctionDynamicRegex = new Regex(Task.Run(GetDecryptRegex).Result);
+            }
+            if ((match = DecryptionFunctionDynamicRegex.Match(js)).Success)
             {
                 return match.Groups[1].Value;
             }
-            else
+            throw new Exception($"{nameof(GetDecryptionFunction)} failed");
+        }
+        // TODO Remove
+        // For Dynamic Regex Service
+        private async Task<string> GetDecryptRegex()
+        {
+            try
             {
-              //if fails use the dynamic regex
-               match = DFunctionRegex_Dynamic.Match(js);
-                    //if dynamic fails then throw an exception              
-                if(!match.Success)
-                    throw new Exception($"{nameof(GetDecryptionFunction)} failed");
-                return match.Groups[1].Value;
+                HttpClient httpClient = new HttpClient();
+                var r = await httpClient.GetAsync(DFunctionRegexService);
+                return await r.Content.ReadAsStringAsync();
+            }
+            catch (Exception e)
+            {
+                throw new Exception(e.Message);
             }
         }
         private class Decryptor
@@ -116,11 +152,7 @@ namespace VideoLibrary
                 var escapedFunction = Regex.Escape(function);
                 FunctionType? type = null;
                 /* Pass  "do":function(a){} or xa:function(a,b){} */
-                if (Regex.IsMatch(js, $@"(\"")?{escapedFunction}(\"")?:\bfunction\b\(\w+\)"))
-                {
-                    type = FunctionType.Reverse;
-                }
-                else if (Regex.IsMatch(js, $@"(\"")?{escapedFunction}(\"")?:\bfunction\b\([a],b\).(\breturn\b)?.?\w+\."))
+                if (Regex.IsMatch(js, $@"(\"")?{escapedFunction}(\"")?:\bfunction\b\([a],b\).(\breturn\b)?.?\w+\."))
                 {
                     type = FunctionType.Slice;
                 }
@@ -128,7 +160,10 @@ namespace VideoLibrary
                 {
                     type = FunctionType.Swap;
                 }
-
+                if (Regex.IsMatch(js, $@"(\"")?{escapedFunction}(\"")?:\bfunction\b\(\w+\){{\w+\.reverse"))
+                {
+                    type = FunctionType.Reverse;
+                }
                 if (type.HasValue)
                 {
                     _functionTypes[function] = type.Value;

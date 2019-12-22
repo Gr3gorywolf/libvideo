@@ -28,19 +28,6 @@ namespace VideoLibrary
             this.encrypted = query.IsEncrypted;
             this.FormatCode = int.Parse(new Query(uri)["itag"]);
         }
-        private async Task<string> GetDecryptRegex() // For Dynamic
-        {
-            try
-            {
-                HttpClient httpClient = new HttpClient();
-                var r = await httpClient.GetAsync(DFuctionRegexService);
-                return await r.Content.ReadAsStringAsync();
-            }
-            catch (Exception e)
-            {
-                throw new Exception(e.Message);
-            }
-        }
         public override string Title { get; }
         public override WebSites WebSite => WebSites.YouTube;
 
