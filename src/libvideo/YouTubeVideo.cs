@@ -12,19 +12,13 @@ namespace VideoLibrary
 
         private string uri;
         private bool encrypted;
-        //Your Service
-        // https://dl.dropboxusercontent.com/s/ccmwnfmcmmwdspf/dfunctionregex.txt is not reliable please use own file
-        private static string DFuctionRegexService = "https://dl.dropboxusercontent.com/s/e4atrr5q43nxnvg/dfunctionregex.txt"; //For Dynamic Service
+
         internal YouTubeVideo(string title,
             UnscrambledQuery query, string jsPlayer)
         {
             this.Title = title;
             this.uri = query.Uri;
             this.jsPlayer = jsPlayer;
-            if (DFunctionRegex_Dynamic == null) //For Dynamic
-            {
-                DFunctionRegex_Dynamic = new Regex(Task.Run(GetDecryptRegex).Result);
-            }
             this.encrypted = query.IsEncrypted;
             this.FormatCode = int.Parse(new Query(uri)["itag"]);
         }
