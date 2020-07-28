@@ -62,7 +62,6 @@ namespace VideoLibrary
 
         private IEnumerable<YouTubeVideo> ParseVideos(string source)
         {
-            string title = Html.GetNode("title", source);
             IEnumerable<UnscrambledQuery> queries;
             string jsPlayer = ParseJsPlayer(source);
             if (jsPlayer == null)
@@ -79,6 +78,7 @@ namespace VideoLibrary
             if (string.IsNullOrWhiteSpace(errorReason))
             {
                 var isLiveStream = playerResponseJson.SelectToken("videoDetails.isLive")?.Value<bool>() == true;
+                string title = playerResponseJson.SelectToken("videoDetails.title")?.Value<string>();
                 if (isLiveStream)
                 {
                     throw new UnavailableStreamException($"This is live stream so unavailable stream.");
@@ -116,7 +116,7 @@ namespace VideoLibrary
                             yield return new YouTubeVideo(title, query, jsPlayer);
                             continue;
                         }
-                        var cipherValue = item.SelectToken("cipher")?.Value<string>();
+                        var cipherValue = (item.SelectToken("cipher") ?? item.SelectToken("signatureCipher")).Value<string>();
                         if (!string.IsNullOrEmpty(cipherValue))
                         {
                             yield return new YouTubeVideo(title, Unscramble(cipherValue), jsPlayer);
@@ -180,7 +180,7 @@ namespace VideoLibrary
                 return null;
             }
 
-            if (jsPlayer.StartsWith("/yts"))
+            if (jsPlayer.StartsWith("/yts") || jsPlayer.StartsWith("/s"))
             {
                 return $"https://www.youtube.com{jsPlayer}";
             }
